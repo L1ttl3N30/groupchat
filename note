@@ -1,0 +1,33 @@
+### something extra 
+Running with systemd (Optional, for Persistence)
+You can use systemd to keep the chat app running in the background and start it on boot.
+Create a unit file (as root):
+sudo nano /etc/systemd/system/lan-chat.service
+
+
+Example unit file:
+[Unit]
+Description=LAN Chat Flask App
+After=network.target
+
+[Service]
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME/chat_app
+Environment="PATH=/home/YOUR_USERNAME/chat_app/venv/bin"
+ExecStart=/home/YOUR_USERNAME/chat_app/venv/bin/python app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+
+Replace YOUR_USERNAME and paths accordingly.
+Reload systemd, enable and start:
+sudo systemctl daemon-reload
+sudo systemctl enable lan-chat.service
+sudo systemctl start lan-chat.service
+
+
+Check status:
+sudo systemctl status lan-chat.service
+Now your chat app will run automatically on boot and stay up in the background.
