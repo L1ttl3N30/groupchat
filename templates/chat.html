@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LAN Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div id="app">
+    <h1>LAN Chat</h1>
+
+    <div id="chat-container">
+        <div id="chat-box"></div>
+    </div>
+
+    <form id="chat-form">
+        <div id="username-row">
+            <label for="username">Name (optional):</label>
+            <input
+                type="text"
+                id="username"
+                name="username"
+                maxlength="32"
+                placeholder="Anonymous"
+                value="{{ username|e }}"
+            >
+        </div>
+
+        <div id="message-row">
+            <textarea
+                id="message"
+                name="text"
+                rows="2"
+                placeholder="Type your message..."
+            ></textarea>
+            <button type="submit" id="send-button">Send</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    let lastRenderedCount = 0;
+
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return "";
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    async function loadMessages() {
+        try {
+            const response = await fetch("/messages");
+            if (!response.ok) {
+                return;
+            }
+            const data = await response.json();
+            const chatBox = document.getElementById("chat-box");
+
+            // Only re-render if message count changed (tiny optimization)
+            if (data.length === lastRenderedCount) {
+                return;
+            }
+            lastRenderedCount = data.length;
+
+            chatBox.innerHTML = "";
+
+            data.forEach(msg => {
+                const div = document.createElement("div");
+                div.className = "message";
+
+                const user = msg.username || "Anonymous";
+                const timestamp = msg.timestamp || "";
+
+                div.innerHTML =
+                    '<span class="meta">[' +
+                    escapeHtml(timestamp) +
+                    '] ' +
+                    escapeHtml(user) +
+                    ':</span> ' +
+                    '<span class="text">' +
+                    escapeHtml(msg.text) +
+                    "</span>";
+
+                chatBox.appendChild(div);
+            });
+
+            // Auto-scroll to bottom
+            chatBox.scrollTop = chatBox.scrollHeight;
+        } catch (err) {
+            // Silent fail in this minimal app
+        }
+    }
+
+    async function sendMessage(event) {
+        event.preventDefault();
+        const messageInput = document.getElementById("message");
+        const usernameInput = document.getElementById("username");
+        const sendButton = document.getElementById("send-button");
+
+        const text = messageInput.value.trim();
+        const username = usernameInput.value.trim();
+
+        if (!text) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("text", text);
+        formData.append("username", username);
+
+        sendButton.disabled = true;
+
+        try {
+            const response = await fetch("/send", {
+                method: "POST",
+                body: formData
+            });
+
+            if (response.ok) {
+                messageInput.value = "";
+                await loadMessages();
+            }
+        } catch (err) {
+            // Silent fail
+        } finally {
+            sendButton.disabled = false;
+            messageInput.focus();
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const form = document.getElementById("chat-form");
+        form.addEventListener("submit", sendMessage);
+
+        // Initial load
+        loadMessages();
+        // Poll every 2 seconds
+        setInterval(loadMessages, 2000);
+
+        // Focus the message box on load
+        const messageInput = document.getElementById("message");
+        messageInput.focus();
+    });
+</script>
+</body>
+</html>
